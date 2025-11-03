@@ -23,6 +23,7 @@ fields = [
     FieldSchema(name="question_embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
     FieldSchema(name="answer_embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
 ]
+
 schema = CollectionSchema(fields, description="FAQ embeddings (question + answer)")
 
 # 5. recreate collection
