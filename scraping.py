@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup as bs4
+from selenium import webdriver
 import requests
 
 def scrape_website(url):
@@ -9,9 +10,19 @@ def scrape_website(url):
     else:
         raise Exception(f"Failed to retrieve content from {url}, status code: {response.status_code}")
     
+def scrape_with_selenium(url):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
+    driver.get(url)
+    content = driver.page_source
+    driver.quit()
+    soup = bs4(content, 'html.parser')
+    return soup.get_text()
+    
 if __name__ == "__main__":
-    url = "https://www.bankofbeirut.com/en/FAQ"
-    textfile_name = "bank_of_beirut_faq.txt"
+    url = "https://onlinebanking.bankmed.com.lb/?module=faq"
+    textfile_name = "bankmed_faq.txt"
 
     try:
         content = scrape_website(url)
