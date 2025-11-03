@@ -23,12 +23,23 @@ res = collection.search(
     output_fields=["question", "answer"]
 )
 
+##system prompt 
+system_prompt = f"""
+                 You are a helpful bank assistant.
+                 Given the following context, answer the questions accurately and shortly, depending on the context only: {res}
+                 If you find no context, return "I didn't find any available info on this."
+"""
+
 response: ChatResponse= chat(model="gpt-oss:latest",
                              messages= [
                                  {
+                                     "role":"system",
+                                     "content":system_prompt,
+                                 }
+                                 ,
+                                 {
                                      "role": 'user',
                                      "content": input_usr,
-                                     "context": res
                             
                                  }
                              ])

@@ -5,6 +5,7 @@ pymilvus==2.4.7
 marshmallow==3.0.1
 environs==9.3.1
 sentence-transformers==2.5.1
+ollama==0.6.0
 fastapi==0.115.4
 uvicorn==0.32.0
 pydantic==2.9.2

@@ -4,3 +4,7 @@ data/
 volumes/
 docker-compose.yml
 __pycache__/
+*.txt
+*.json
+*.yaml
+*.bat
