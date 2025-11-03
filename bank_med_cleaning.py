@@ -58,7 +58,7 @@ def organize_bankmed_faq(faq_file, output_file='m_by_bankmed_faq.json'):
 
 
 if __name__ == "__main__":
-    faq_json = organize_bankmed_faq('bank_med_faqs.txt')
+    faq_json = organize_bankmed_faq('data/Bankmed/bank_med_faqs.txt', 'data/Bankmed/m_by_bankmed_faq.json')
 
     print("\nSample output:")
     for i, qa in enumerate(faq_json["m_by_Bankmed"][:3]):
