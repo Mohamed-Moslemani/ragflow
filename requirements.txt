@@ -1,0 +1,6 @@
+beautifulsoup4==4.12.3
+requests==2.32.3
+pymilvus==2.4.7
+fastapi==0.115.4
+uvicorn==0.32.0
+pydantic==2.9.2
