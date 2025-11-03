@@ -1,4 +1,6 @@
 .vscode
 venv/
 data/
+volumes/
+docker-compose.yml
 __pycache__/
