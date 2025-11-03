@@ -40,7 +40,7 @@ collection = Collection(
 )
 
 # 6. load data
-json_file = 'bank_of_beirut_faq_organized.json'
+json_file = 'data/Bank_of_Beirut/bank_of_beirut_faq_organized.json'
 with open(json_file, 'r', encoding='utf-8') as f:
     faq_data = json.load(f)
 
