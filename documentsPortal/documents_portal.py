@@ -40,7 +40,7 @@ def perform_semantic_chunking(
 ):
 
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n", ". ", " ", ""],
+        separators=["\n\n", "\n", ". ", " ", "", "? "],
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         length_function=len,
@@ -56,36 +56,27 @@ def perform_semantic_chunking(
     ]
 
     documents = []
-    current_section = "Introduction"
 
     for i, chunk in enumerate(semantic_chunks):
-        # Try to identify section title from chunk
         chunk_lines = chunk.split("\n")
         for line in chunk_lines:
             for pattern in section_patterns:
-                match = re.match(pattern, line.strip())
-                if match:
-                    # For markdown headers, use the group;
-                    # for others, fall back to full line
-                    current_section = match.group(1) if match.groups() else match.group(0)
+                if re.match(pattern, line.strip()):
+                    chunk_type = "section_header"
                     break
-
-        # Semantic density (very rough heuristic)
+                else:
+                    chunk_type = "semantic"
+            
         words = re.findall(r"\b\w+\b", chunk.lower())
-        stopwords = {"the", "and", "is", "of", "to", "a", "in", "that", "it", "with", "as", "for"}
-        content_words = [w for w in words if w not in stopwords]
-        semantic_density = len(content_words) / max(1, len(words))
 
         doc = Document(
             page_content=chunk,
             metadata={
-                "source": source,                  # file_path
+                "source": source,
                 "chunk_id": i,
                 "total_chunks": len(semantic_chunks),
                 "chunk_size": len(chunk),
                 "chunk_type": "semantic",
-                "section": current_section,
-                "semantic_density": round(semantic_density, 2),
             },
         )
         documents.append(doc)
@@ -109,7 +100,8 @@ def main(file_path: str):
     print(f"Total semantic chunks: {len(chunked_docs)}")
 
     # Show an example chunk
-    middle_chunk_idx = len(chunked_docs) // 2 if chunked_docs else 0
+    # middle_chunk_idx = len(chunked_docs) // 2 if chunked_docs else 0
+    middle_chunk_idx = 0
     if chunked_docs:
         example_chunk = chunked_docs[middle_chunk_idx]
         print("\n----- EXAMPLE SEMANTIC CHUNK -----")
@@ -121,5 +113,5 @@ def main(file_path: str):
 
 
 if __name__ == "__main__":
-    test_file_path = "data/test/pdf-test.pdf"
+    test_file_path = "Chroma_DB_Filtering.pdf"  # Change to your test file path
     main(test_file_path)
