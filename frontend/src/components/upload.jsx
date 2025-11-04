@@ -78,7 +78,7 @@ export default function UploadForm() {
             className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             <option value="BankMed">BankMed</option>
-            <option value="Bank of Beirut">Bank of Beirut</option>
+            <option value="Bank_of_Beirut">Bank of Beirut</option>
           </select>
         </div>
 
