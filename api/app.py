@@ -1,13 +1,20 @@
 from fastapi import FastAPI, UploadFile, File, Form
 import os
 import sys
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from documentsPortal import documents_portal
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 UPLOAD_DIR = "uploaded_files/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
