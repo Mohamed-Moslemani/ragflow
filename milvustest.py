@@ -1,9 +1,21 @@
-from pymilvus import connections, Collection
-
+from pymilvus import connections, Collection,MilvusClient
+from pymilvus import utility
 connections.connect(alias="default", host="localhost", port="19530")
 
-collection = Collection(name="bob_faqs", using="default", db_name="faqs_db")
+client = MilvusClient(
+    uri="http://localhost:19530",
+    token="root:Milvus"
+)
 
-# Option A: Query everything (beware large data sets)
-result = collection.query(expr='question == "How to contact the Headoffice?"', output_fields=["question", "answer"])
-print(result)
+
+# List all collections
+collections = client.list_collections()
+
+# Print the list of collections
+print(collections)
+
+collection = Collection(name="testChunk", using="default", db_name="faqs_db")
+collection.load()
+
+# result = collection.query(expr='chunk_id>=0')
+# print(result)
