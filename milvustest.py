@@ -1,4 +1,4 @@
-from pymilvus import connections, Collection,MilvusClient
+from pymilvus import connections, Collection, MilvusClient
 from pymilvus import utility
 connections.connect(alias="default", host="localhost", port="19530")
 
@@ -14,8 +14,12 @@ collections = client.list_collections()
 # Print the list of collections
 print(collections)
 
-collection = Collection(name="testChunk", using="default", db_name="faqs_db")
-collection.load()
+# List all databases
+databases = client.list_databases()
+print(databases)
 
-result = collection.query(expr='chunk_id==461962138324829013', output_fields=["chunk_id", "text"], limit=5)
-print(result)
+# collection = Collection(name="testChunk", using="default", db_name="faqs_db")
+# collection.load()
+
+# result = collection.query(expr='chunk_id==461962138324829013', output_fields=["chunk_id", "text"], limit=5)
+# print(result)
