@@ -7,25 +7,56 @@ export default function UploadForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!file) {
       setStatus("Please upload a file.");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("bank", bank);
-    formData.append("file", file);
-
     try {
-      const res = await fetch("http://localhost:8000/upload", {
+      setStatus("Sending bank and file to backend...");
+
+      // 1) Send bank name to /bankname
+      const bankForm = new FormData();
+      bankForm.append("bank_name", bank);
+
+      const bankRes = await fetch("http://localhost:8000/bankname", {
         method: "POST",
-        body: formData,
+        body: bankForm,
       });
-      const data = await res.json();
-      setStatus(`Uploaded ${data.filename} (${data.size} bytes) to ${data.bank}`);
+
+      if (!bankRes.ok) throw new Error("Failed to set bank name.");
+      const bankData = await bankRes.json();
+
+      // 2) Upload file to /documents
+      const fileForm = new FormData();
+      fileForm.append("file", file);
+
+      const fileRes = await fetch("http://localhost:8000/documents", {
+        method: "POST",
+        body: fileForm,
+      });
+
+      if (!fileRes.ok) throw new Error("Failed to upload file.");
+      const fileData = await fileRes.json();
+      const uploadedFilename = fileData.filename;
+
+      // 3) Process document
+      const processRes = await fetch(
+        `http://localhost:8000/documents/${encodeURIComponent(
+          uploadedFilename
+        )}/process`
+      );
+
+      if (!processRes.ok) throw new Error("Failed to process document.");
+      const processData = await processRes.json();
+
+      setStatus(
+        `Bank: ${bankData.bank_name} | File: ${uploadedFilename} | ${processData.message}`
+      );
     } catch (err) {
       console.error(err);
-      setStatus("Error uploading file.");
+      setStatus(err.message || "Error while uploading or processing file.");
     }
   };
 
@@ -59,12 +90,11 @@ export default function UploadForm() {
           <input
             type="file"
             accept=".pdf,.txt"
-            onChange={(e) => setFile(e.target.files[0])}
+            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
             className="w-full border border-gray-300 rounded-md p-2 bg-gray-50"
           />
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           className="w-full bg-purple-700 text-white py-2 rounded-md hover:bg-purple-800 transition"
