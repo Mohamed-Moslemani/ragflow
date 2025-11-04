@@ -54,7 +54,7 @@ def create_database(client, db_name: str):
 
 
 def main():
-    db_name = "faqs_db2"
+    db_name = "faqs_db"
 
     client = MilvusClient(
         uri="http://localhost:19530",
@@ -79,7 +79,7 @@ def main():
         shards_num=2,
     )
 
-    list_collections(client, "faqs_db2")
+    list_collections(client, "faqs_db")
 
     delete_collection(client, "testChunks", db_name)
 

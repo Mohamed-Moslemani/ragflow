@@ -4,7 +4,7 @@ connections.connect(alias="default", host="localhost", port="19530")
 
 client = MilvusClient(
     uri="http://localhost:19530",
-    token="root:Milvus"
+    token="root:Milvus",
 )
 
 

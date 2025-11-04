@@ -3,8 +3,13 @@ import re
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
+from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility, MilvusClient
 from sentence_transformers import SentenceTransformer
+import logging
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from databaseHandling import database_handling
 
 
 def load_document(file_path: str) -> str:
@@ -94,23 +99,54 @@ def embed_document_chunks(chunked_docs: list, model_name: str) -> list:
         
     return chunked_docs
 
-def toDB(documents,collection_name="document_chunks"):
-    connections.disconnect("default")
-    connections.connect("default", host="localhost", port="19530")
+def toDB(documents, collection_name="document_chunks", bank_name="default_bank"):
 
-    if utility.has_collection(collection_name):
-        utility.drop_collection(collection_name=collection_name, using="default")
-    else:
-        fields = [
+    try:
+        connections.disconnect(alias="default")
+        connections.connect(alias="default", host="localhost", port="19530")
+    except:
+        connections.connect(alias="default", host="localhost", port="19530")
+
+    client = MilvusClient(
+        uri="http://localhost:19530",
+        token="root:Milvus",
+    )
+
+    database_handling.create_database(client, db_name=bank_name)
+
+    schema = CollectionSchema(
+        [
             FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=4096),
             FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1024),
             FieldSchema(name="chunk_size", dtype=DataType.INT64),
             FieldSchema(name="chunk_type", dtype=DataType.VARCHAR, max_length=256),
             FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=len(documents[0].metadata["embedding"])),
-        ]
-        schema = CollectionSchema(fields, description="Document chunks with embeddings")
-        collection = Collection(name=collection_name, schema=schema)
+        ],
+        description="Document chunks with embeddings",
+    )
+    collection = database_handling.create_collection(
+        collection_name=collection_name,
+        schema=schema,
+        db_name=bank_name,
+    )
+    logging.info(f"Using collection '{collection_name}' in database '{bank_name}'.")
+
+    # if utility.has_collection(collection_name):
+    #     collection = Collection(name=collection_name)
+    #     logging.info(f"Collection '{collection_name}' already exists.")
+    # else:
+    #     fields = [
+    #         FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+    #         FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=4096),
+    #         FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1024),
+    #         FieldSchema(name="chunk_size", dtype=DataType.INT64),
+    #         FieldSchema(name="chunk_type", dtype=DataType.VARCHAR, max_length=256),
+    #         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=len(documents[0].metadata["embedding"])),
+    #     ]
+    #     schema = CollectionSchema(fields, description="Document chunks with embeddings")
+    #     collection = Collection(name=collection_name, schema=schema)
+    #     logging.info(f"Collection '{collection_name}' created.")
 
     chunk_ids = [doc.metadata["chunk_id"] for doc in documents]
     texts = [doc.page_content for doc in documents]
@@ -138,7 +174,7 @@ def toDB(documents,collection_name="document_chunks"):
     collection.create_index(field_name="embedding", index_params=index_params)
     collection.load()
 
-    print(f"Inserted {len(documents)} document chunks into the database.")
+    logging.info(f"Inserted {len(documents)} documents into collection '{collection_name}'.")
     
     
 def main(file_path: str):
@@ -159,7 +195,7 @@ def main(file_path: str):
         model_name='all-MiniLM-L6-v2',
     )
     # 4. Store in database
-    toDB(embedded_docs, collection_name="testChunk")
+    toDB(embedded_docs, collection_name="testChunk", bank_name="faqs_db")
 
 if __name__ == "__main__":
     test_file_path = "Chroma_DB_Filtering.pdf"  
