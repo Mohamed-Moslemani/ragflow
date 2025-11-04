@@ -95,13 +95,15 @@ def embed_document_chunks(chunked_docs: list, model_name: str) -> list:
     return chunked_docs
 
 def toDB(documents,collection_name="document_chunks"):
+    connections.disconnect("default")
     connections.connect("default", host="localhost", port="19530")
 
     if utility.has_collection(collection_name):
-        collection = Collection(collection_name)
+        utility.drop_collection(collection_name=collection_name, using="default")
     else:
         fields = [
             FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=4096),
             FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1024),
             FieldSchema(name="chunk_size", dtype=DataType.INT64),
             FieldSchema(name="chunk_type", dtype=DataType.VARCHAR, max_length=256),
@@ -111,6 +113,7 @@ def toDB(documents,collection_name="document_chunks"):
         collection = Collection(name=collection_name, schema=schema)
 
     chunk_ids = [doc.metadata["chunk_id"] for doc in documents]
+    texts = [doc.page_content for doc in documents]
     sources = [doc.metadata["source"] for doc in documents]
     chunk_sizes = [doc.metadata["chunk_size"] for doc in documents]
     chunk_types = [doc.metadata["chunk_type"] for doc in documents]
@@ -118,12 +121,22 @@ def toDB(documents,collection_name="document_chunks"):
 
     collection.insert(
         [
+            texts,
             sources,
             chunk_sizes,
             chunk_types,
             embeddings,
         ]
     )
+
+    index_params = {
+        "index_type": "IVF_FLAT",
+        "metric_type": "L2",
+        "params": {"nlist": 128},
+    }
+
+    collection.create_index(field_name="embedding", index_params=index_params)
+    collection.load()
 
     print(f"Inserted {len(documents)} document chunks into the database.")
     
@@ -149,5 +162,5 @@ def main(file_path: str):
     toDB(embedded_docs, collection_name="testChunk")
 
 if __name__ == "__main__":
-    test_file_path = "data/test/pdf-test.pdf"  
+    test_file_path = "Chroma_DB_Filtering.pdf"  
     main(test_file_path)
