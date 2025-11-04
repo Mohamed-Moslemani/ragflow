@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 import os
 from ollama import chat, ChatResponse
-from milvus import connections, Collection
+from pymilvus import connections, Collection
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from documentsPortal import documents_portal
