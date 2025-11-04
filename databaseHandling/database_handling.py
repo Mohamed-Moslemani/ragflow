@@ -6,14 +6,9 @@ try:
 except:
     connections.connect(alias="default", host="localhost", port="19530")
 
-client = MilvusClient(
-    uri="http://localhost:19530",
-    token="root:Milvus"
-)
 
-def list_collections():
-    collections = client.list_collections()
-    return collections
+def list_collections(client, db_name: str):
+    return client.list_collections(db_name=db_name)
 
 def create_collection(collection_name: str, schema: CollectionSchema, db_name: str, **kwargs):
     if utility.has_collection(collection_name=collection_name, using="default"):
@@ -29,40 +24,45 @@ def create_collection(collection_name: str, schema: CollectionSchema, db_name: s
         )
         print(f"Collection '{collection_name}' created.")
         return collection
-
-def delete_collection(collection_name: str):
-    if utility.has_collection(collection_name=collection_name, using="default"):
-        utility.drop_collection(collection_name=collection_name, using="default")
-        print(f"Collection '{collection_name}' deleted.")
-    else:
-        print(f"Collection '{collection_name}' does not exist.")
-
-def create_database(db_name: str):
-    try:
-        utility.create_database(db_name)
-        print(f"Database '{db_name}' created.")
-    except Exception as e:
-        print(f"Database creation skipped: {e}")
     
-def delete_database(db_name: str):
+def delete_collection(client, collection_name: str, db_name: str):
+    collections = client.list_collections(db_name=db_name)
+    if collection_name in collections:
+        client.drop_collection(collection_name, db_name=db_name)
+        print(f"Collection '{collection_name}' deleted from database '{db_name}'.")
+    else:
+        print(f"Collection '{collection_name}' does not exist in database '{db_name}'.")
+
+
+def delete_database(client, db_name: str):
     try:
-        collections = list_collections()
+        collections = client.list_collections(db_name=db_name)
         for coll in collections:
-            delete_collection(collection_name=coll)
-        client.drop_database(db_name)
+            delete_collection(client, collection_name=coll, db_name=db_name)
+        client.drop_database(db_name=db_name)
         print(f"Database '{db_name}' dropped.")
     except Exception as e:
         print(f"Failed to drop database '{db_name}': {e}")
 
 
-def main():
-    collections = list_collections()
-    print("Collections in the database:")
-    for coll in collections:
-        print(f"- {coll}")
+def create_database(client, db_name: str):
+    try:
+        client.create_database(db_name=db_name)
+        print(f"Database '{db_name}' created.")
+    except Exception as e:
+        print(f"Database creation skipped: {e}")
 
-if __name__ == "__main__":
-    create_database("faqs_db")
+
+def main():
+    db_name = "faqs_db2"
+
+    client = MilvusClient(
+        uri="http://localhost:19530",
+        token="root:Milvus",
+    )
+
+    create_database(client, db_name)
+
     create_collection(
         collection_name="testChunks",
         schema=CollectionSchema(
@@ -75,9 +75,32 @@ if __name__ == "__main__":
             ],
             description="FAQ embeddings (question + answer)"
         ),
-        db_name="faqs_db",
+        db_name=db_name,
         shards_num=2,
     )
-    main()
-    delete_database("faqs_db")
+
+    list_collections(client, "faqs_db2")
+
+    delete_collection(client, "testChunks", db_name)
+
+    create_collection(
+        collection_name="testChunks",
+        schema=CollectionSchema(
+            fields=[
+                FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+                FieldSchema(name="question", dtype=DataType.VARCHAR, max_length=512),
+                FieldSchema(name="answer", dtype=DataType.VARCHAR, max_length=2048),
+                FieldSchema(name="question_embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+                FieldSchema(name="answer_embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+            ],
+            description="FAQ embeddings (question + answer)"
+        ),
+        db_name=db_name,
+        shards_num=2,
+    )
+
+    delete_database(client, db_name)
+
+
+if __name__ == "__main__":
     main()
