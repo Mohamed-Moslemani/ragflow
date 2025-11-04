@@ -1,10 +1,12 @@
 from fastapi import FastAPI, UploadFile, File, Form
 import os
+from ollama import chat, ChatResponse
+from milvus import connections, Collection
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from documentsPortal import documents_portal
 from fastapi.middleware.cors import CORSMiddleware
+from input_embedding import chatrag
 
 app = FastAPI()
 
@@ -15,6 +17,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 UPLOAD_DIR = "uploaded_files/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -67,6 +70,23 @@ async def process_document(filename: str):
         bank_name=selected_bank_name,
     )
     return {"message": f"Document '{filename}' processed and stored in database."}
+
+
+@app.get("/chat/{query}")
+def rag(query: str,
+            database_name: str,
+            search_limit: int = 5,
+            embedding_model: str = 'all-MiniLM-L6-v2',
+            llm_model: str = "gpt-oss:latest"):
+    
+    response = chatrag(
+        query=query,
+        database_name=database_name,
+        search_limit=search_limit,
+        embedding_model=embedding_model,
+        llm_model=llm_model,
+    )
+    return {"response": response}
 
 if __name__ == "__main__":
     import uvicorn
