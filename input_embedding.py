@@ -1,47 +1,97 @@
 from sentence_transformers import SentenceTransformer
-from pymilvus import connections, Collection
+from pymilvus import connections, Collection, MilvusClient
+from ollama import chat, ChatResponse
 import numpy as np
-from ollama import chat,ChatResponse
-# connect
-connections.connect("default", host="localhost", port="19530")
-# model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+import sys
+import os
 
-# embed query
-input_usr = input("What is your query? ")
-embedded_input = model.encode([input_usr]).tolist()
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# collection
-collection = Collection("bob_faqs")
+from databaseHandling import database_handling
 
-# search
-res = collection.search(
-    data=embedded_input,
-    anns_field="question_embedding",
-    param={"metric_type": "L2", "params": {"nprobe": 10}},
-    limit=2,
-    output_fields=["question", "answer"]
-)
 
-##system prompt 
-system_prompt = f"""
-                 You are a helpful bank assistant.
-                 Given the following context, answer the questions accurately and shortly, depending on the context only: {res}
-                 If you find no context, return "I didn't find any available info on this."
-"""
 
-response: ChatResponse= chat(model="gpt-oss:latest",
-                             messages= [
-                                 {
-                                     "role":"system",
-                                     "content":system_prompt,
-                                 }
-                                 ,
-                                 {
-                                     "role": 'user',
-                                     "content": input_usr,
-                            
-                                 }
-                             ])
 
-print(response["message"]["content"])
+def chatrag(query: str,
+            database_name: str,
+            search_limit: int = 5,
+            embedding_model: str = 'all-MiniLM-L6-v2',
+            llm_model: str = "gpt-oss:latest") -> str:
+    """
+    Perform semantic search over Milvus FAQ collection and generate an LLM-based answer.
+
+    Args:
+        query (str): The user's input question.
+        collection_name (str): Milvus collection name. Defaults to "bob_faqs".
+        host (str): Milvus host address. Defaults to localhost.
+        port (str): Milvus port. Defaults to 19530.
+        llm_model (str): LLM model name for Ollama chat. Defaults to gpt-oss:latest.
+
+    Returns:
+        str: The generated LLM response.
+    """
+
+    # connect to Milvus
+    try:
+        connections.disconnect(alias="default")
+        connections.connect("default", host="localhost", port="19530")
+    except:
+        connections.connect("default", host="localhost", port="19530")
+
+    client = MilvusClient(
+        uri="http://localhost:19530",
+        token="root:Milvus",
+    )
+
+    # embed query
+    model = SentenceTransformer(embedding_model)
+    embedded_input = model.encode([query]).tolist()
+
+    # search in Milvus
+    collections_list = database_handling.list_collections(client, db_name=database_name)
+    if not collections_list:
+        return "No collections found in the specified database."
+    results = []
+    for coll in collections_list:
+        collection = Collection(name=coll, using="default", db_name=database_name)
+        collection.load()
+        results.extend(collection.search(
+            data=embedded_input,
+            anns_field="question_embedding",
+            param={"metric_type": "L2", "params": {"nprobe": 10}},
+            limit=search_limit,
+            output_fields=["question", "answer"]
+        ))
+
+    # sort results by distance
+    results.sort(key=lambda x: x[0].distance)
+    results = results[0][:search_limit]
+
+    context = [hit.entity for hit in results]
+    context_str = "\n\n".join(context) if context else "No relevant context found."
+
+    # build system prompt
+    system_prompt = (
+        "You are a helpful bank assistant.\n"
+        f"Given the following context, answer accurately and concisely:\n\n{context_str}\n\n"
+        "If no context is available, reply: \"I didn't find any available info on this.\""
+    )
+
+    # chat with LLM
+    response: ChatResponse = chat(
+        model=llm_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query}
+        ]
+    )
+
+    return response["message"]["content"]
+
+
+# Example usage:
+if __name__ == "__main__":
+    question = input("What is your query? ")
+    answer = ask_faq(question)
+    print("\nResponse:", answer)
+

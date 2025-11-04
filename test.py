@@ -1,13 +1,21 @@
 from sentence_transformers import SentenceTransformer
-from pymilvus import connections, Collection
+from pymilvus import connections, Collection, MilvusClient
 from ollama import chat, ChatResponse
 import numpy as np
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from databaseHandling import database_handling
 
 
-def ask_faq(query: str,
-            collection_name: str = "bob_faqs",
-            host: str = "localhost",
-            port: str = "19530",
+
+
+def chatrag(query: str,
+            database_name: str,
+            search_limit: int = 5,
+            embedding_model: str = 'all-MiniLM-L6-v2',
             llm_model: str = "gpt-oss:latest") -> str:
     """
     Perform semantic search over Milvus FAQ collection and generate an LLM-based answer.
@@ -24,33 +32,48 @@ def ask_faq(query: str,
     """
 
     # connect to Milvus
-    connections.connect("default", host=host, port=port)
+    try:
+        connections.disconnect(alias="default")
+        connections.connect("default", host="localhost", port="19530")
+    except:
+        connections.connect("default", host="localhost", port="19530")
+
+    client = MilvusClient(
+        uri="http://localhost:19530",
+        token="root:Milvus",
+    )
 
     # embed query
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    model = SentenceTransformer(embedding_model)
     embedded_input = model.encode([query]).tolist()
 
     # search in Milvus
-    collection = Collection(collection_name)
-    results = collection.search(
-        data=embedded_input,
-        anns_field="question_embedding",
-        param={"metric_type": "L2", "params": {"nprobe": 10}},
-        limit=2,
-        output_fields=["question", "answer"]
-    )
+    collections_list = database_handling.list_collections(client, db_name=database_name)
+    if not collections_list:
+        return "No collections found in the specified database."
+    results = []
+    for coll in collections_list:
+        collection = Collection(name=coll, using="default", db_name=database_name)
+        collection.load()
+        results.extend(collection.search(
+            data=embedded_input,
+            anns_field="question_embedding",
+            param={"metric_type": "L2", "params": {"nprobe": 10}},
+            limit=search_limit,
+            output_fields=["question", "answer"]
+        ))
 
-    # extract retrieved context
-    context_pairs = [
-        f"Q: {hit.entity.get('question')}\nA: {hit.entity.get('answer')}"
-        for hit in results[0]
-    ]
-    context_text = "\n\n".join(context_pairs) if context_pairs else "No relevant context found."
+    # sort results by distance
+    results.sort(key=lambda x: x[0].distance)
+    results = results[0][:search_limit]
+
+    context = [hit.entity for hit in results]
+    context_str = "\n\n".join(context) if context else "No relevant context found."
 
     # build system prompt
     system_prompt = (
         "You are a helpful bank assistant.\n"
-        f"Given the following context, answer accurately and concisely:\n\n{context_text}\n\n"
+        f"Given the following context, answer accurately and concisely:\n\n{context_str}\n\n"
         "If no context is available, reply: \"I didn't find any available info on this.\""
     )
 
