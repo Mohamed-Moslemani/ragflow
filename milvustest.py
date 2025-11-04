@@ -18,8 +18,11 @@ print(collections)
 databases = client.list_databases()
 print(databases)
 
-# collection = Collection(name="testChunk", using="default", db_name="faqs_db")
-# collection.load()
+collection = Collection(name="Chroma_DB_Filtering", using="default", db_name="default_bank")
+collection.load()
 
-# result = collection.query(expr='chunk_id==461962138324829013', output_fields=["chunk_id", "text"], limit=5)
-# print(result)
+# print elements in the collection
+
+
+result = collection.query(expr='chunk_id>=0', output_fields=["chunk_id", "text"], limit=5)
+print(result)

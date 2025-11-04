@@ -54,7 +54,7 @@ def create_database(client, db_name: str):
 
 
 def main():
-    db_name = "faqs_db"
+    db_name = "default_bank"
 
     client = MilvusClient(
         uri="http://localhost:19530",

@@ -90,7 +90,7 @@ def perform_semantic_chunking(
 
     return documents
 
-def embed_document_chunks(chunked_docs: list, model_name: str) -> list:
+def perform_embedding_generation(chunked_docs: list, model_name: str) -> list:
     model = SentenceTransformer(model_name)
     texts = [doc.page_content for doc in chunked_docs]
     embeddings = model.encode(texts, convert_to_numpy=True).astype("float32")
@@ -190,7 +190,7 @@ def main(file_path: str):
     print(chunked_docs)
 
     # 3. Embed chunks
-    embedded_docs = embed_document_chunks(
+    embedded_docs = perform_embedding_generation(
         chunked_docs=chunked_docs,
         model_name='all-MiniLM-L6-v2',
     )

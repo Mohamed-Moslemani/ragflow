@@ -45,18 +45,19 @@ async def process_document(filename: str):
         return {"error": f"File '{filename}' not found."}
     filename = os.path.basename(filename)
     filename, _ = os.path.splitext(filename)
-    document = await documents_portal.load_document(file_path)
+    document = documents_portal.load_document(file_path)
     chunks = documents_portal.perform_semantic_chunking(
         document=document,
         source=file_path,
     )
     chunks = documents_portal.perform_embedding_generation(
-        chunks=chunks,
+        chunked_docs=chunks,
         model_name="all-MiniLM-L6-v2",
     )
     documents_portal.toDB(
         documents=chunks,
         collection_name=filename,
+        bank_name=selected_bank_name,
     )
     return {"message": f"Document '{filename}' processed and stored in database."}
 
