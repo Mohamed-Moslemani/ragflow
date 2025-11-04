@@ -3,6 +3,8 @@ import re
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
+from sentence_transformers import SentenceTransformer
 
 
 def load_document(file_path: str) -> str:
@@ -83,6 +85,18 @@ def perform_semantic_chunking(
 
     return documents
 
+def embed_document_chunks(chunked_docs: list, model_name: str) -> list:
+    model = SentenceTransformer(model_name)
+    texts = [doc.page_content for doc in chunked_docs]
+    embeddings = model.encode(texts, convert_to_numpy=True).astype("float32")
+    for doc, embedding in zip(chunked_docs, embeddings):
+        doc.metadata["embedding"] = embedding
+        
+    return chunked_docs
+
+
+
+
 
 def main(file_path: str):
     # 1. Load raw content
@@ -95,6 +109,15 @@ def main(file_path: str):
         chunk_size=500,
         chunk_overlap=100,
     )
+    print(chunked_docs)
+
+    # 3. Embed chunks
+    embedded_docs = embed_document_chunks(
+        chunked_docs=chunked_docs,
+        model_name='all-MiniLM-L6-v2',
+    )
+
+    print(embedded_docs[0])
 
     print("\n----- CHUNKING RESULTS -----")
     print(f"Total semantic chunks: {len(chunked_docs)}")
