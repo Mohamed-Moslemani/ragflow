@@ -94,12 +94,41 @@ def embed_document_chunks(chunked_docs: list, model_name: str) -> list:
         
     return chunked_docs
 
+def toDB(documents,collection_name="document_chunks"):
+    connections.connect("default", host="localhost", port="19530")
 
+    if utility.has_collection(collection_name):
+        collection = Collection(collection_name)
+    else:
+        fields = [
+            FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1024),
+            FieldSchema(name="chunk_size", dtype=DataType.INT64),
+            FieldSchema(name="chunk_type", dtype=DataType.VARCHAR, max_length=256),
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=len(documents[0].metadata["embedding"])),
+        ]
+        schema = CollectionSchema(fields, description="Document chunks with embeddings")
+        collection = Collection(name=collection_name, schema=schema)
 
+    chunk_ids = [doc.metadata["chunk_id"] for doc in documents]
+    sources = [doc.metadata["source"] for doc in documents]
+    chunk_sizes = [doc.metadata["chunk_size"] for doc in documents]
+    chunk_types = [doc.metadata["chunk_type"] for doc in documents]
+    embeddings = [doc.metadata["embedding"] for doc in documents]
 
+    collection.insert(
+        [
+            sources,
+            chunk_sizes,
+            chunk_types,
+            embeddings,
+        ]
+    )
 
+    print(f"Inserted {len(documents)} document chunks into the database.")
+    
+    
 def main(file_path: str):
-    # 1. Load raw content
     document_content = load_document(file_path)
 
     # 2. Chunk into Document objects with metadata
@@ -116,25 +145,9 @@ def main(file_path: str):
         chunked_docs=chunked_docs,
         model_name='all-MiniLM-L6-v2',
     )
-
-    print(embedded_docs[0])
-
-    print("\n----- CHUNKING RESULTS -----")
-    print(f"Total semantic chunks: {len(chunked_docs)}")
-
-    # Show an example chunk
-    # middle_chunk_idx = len(chunked_docs) // 2 if chunked_docs else 0
-    middle_chunk_idx = 0
-    if chunked_docs:
-        example_chunk = chunked_docs[middle_chunk_idx]
-        print("\n----- EXAMPLE SEMANTIC CHUNK -----")
-        print(f"Chunk {middle_chunk_idx} content ({len(example_chunk.page_content)} characters):")
-        print("-" * 40)
-        print(example_chunk.page_content[:1000])  # don’t print 10k chars
-        print("-" * 40)
-        print(f"Metadata: {example_chunk.metadata}")
-
+    # 4. Store in database
+    toDB(embedded_docs, collection_name="testChunk")
 
 if __name__ == "__main__":
-    test_file_path = "Chroma_DB_Filtering.pdf"  # Change to your test file path
+    test_file_path = "data/test/pdf-test.pdf"  
     main(test_file_path)
