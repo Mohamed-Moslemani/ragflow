@@ -99,20 +99,17 @@ def perform_embedding_generation(chunked_docs: list, model_name: str) -> list:
         
     return chunked_docs
 
-def toDB(documents, collection_name="document_chunks", bank_name="default_bank"):
+def toDB(documents, partition_name="document_chunks", collection_name="default_bank"):
 
     client = MilvusClient(
         uri="http://localhost:19530",
         token="root:Milvus",
-        # db_name=bank_name,
     )
-    database_handling.create_database(client, db_name=bank_name)
     try:
-        connections.disconnect(alias=bank_name)
-        connections.connect(alias=bank_name, host="localhost", port="19530")
+        client.use_database("Banks_DB")
     except:
-        connections.connect(alias=bank_name, host="localhost", port="19530")
-
+        client.create_database("Banks_DB")
+        client.use_database("Banks_DB")
 
 
     schema = CollectionSchema(
@@ -126,28 +123,26 @@ def toDB(documents, collection_name="document_chunks", bank_name="default_bank")
         ],
         description="Document chunks with embeddings",
     )
-    collection = database_handling.create_collection(
-        collection_name=collection_name,
-        schema=schema,
-        db_name=bank_name,
-    )
-    logging.info(f"Using collection '{collection_name}' in database '{bank_name}'.")
+    try:
+        collection = Collection(name=collection_name, schema=schema)
+        print(f"Collection '{collection_name}' already exists.")
+        logging.info(f"Collection '{collection_name}' already exists.")
+    except:
+        client.create_collection(
+            collection_name=collection_name,
+            schema=schema,
+        )
+        print(f"Collection '{collection_name}' created.")
+        collection = Collection(name=collection_name, schema=schema)
+        logging.info(f"Collection '{collection_name}' created.")
 
-    # if utility.has_collection(collection_name):
-    #     collection = Collection(name=collection_name)
-    #     logging.info(f"Collection '{collection_name}' already exists.")
-    # else:
-    #     fields = [
-    #         FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-    #         FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=4096),
-    #         FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1024),
-    #         FieldSchema(name="chunk_size", dtype=DataType.INT64),
-    #         FieldSchema(name="chunk_type", dtype=DataType.VARCHAR, max_length=256),
-    #         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=len(documents[0].metadata["embedding"])),
-    #     ]
-    #     schema = CollectionSchema(fields, description="Document chunks with embeddings")
-    #     collection = Collection(name=collection_name, schema=schema)
-    #     logging.info(f"Collection '{collection_name}' created.")
+    try:
+        logging.info(f"Dropping existing partition '{partition_name}' and recreating it with updated chunks.")
+        collection.drop_partition(partition_name=partition_name)
+        collection.create_partition(partition_name=partition_name)
+    except:
+        collection.create_partition(partition_name=partition_name)
+        logging.info(f"Partition '{partition_name}' created.")
 
     chunk_ids = [doc.metadata["chunk_id"] for doc in documents]
     texts = [doc.page_content for doc in documents]
@@ -156,14 +151,16 @@ def toDB(documents, collection_name="document_chunks", bank_name="default_bank")
     chunk_types = [doc.metadata["chunk_type"] for doc in documents]
     embeddings = [doc.metadata["embedding"] for doc in documents]
 
-    collection.insert(
-        [
+    client.insert(
+        collection_name=collection_name,
+        partition_name=partition_name,
+        data=[
             texts,
             sources,
             chunk_sizes,
             chunk_types,
             embeddings,
-        ]
+        ],
     )
 
     index_params = {
@@ -172,8 +169,8 @@ def toDB(documents, collection_name="document_chunks", bank_name="default_bank")
         "params": {"nlist": 128},
     }
 
-    collection.create_index(field_name="embedding", index_params=index_params)
-    collection.load()
+    client.create_index(collection_name=collection_name, field_name="embedding", index_params=index_params)
+    client.load_collection(collection_name=collection_name)
 
     logging.info(f"Inserted {len(documents)} documents into collection '{collection_name}'.")
     
@@ -196,7 +193,7 @@ def main(file_path: str):
         model_name='all-MiniLM-L6-v2',
     )
     # 4. Store in database
-    toDB(embedded_docs, collection_name="testChunk", bank_name="faqs_db")
+    toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
     test_file_path = "Chroma_DB_Filtering.pdf"  
