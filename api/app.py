@@ -12,7 +12,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,12 +73,13 @@ async def process_document(filename: str):
 
 
 @app.get("/chat/{query}")
-def rag(query: str,
-            database_name: str,
-            search_limit: int = 5,
-            embedding_model: str = 'all-MiniLM-L6-v2',
-            llm_model: str = "gpt-oss:latest"):
-    
+def rag(
+    query: str,
+    database_name: str,
+    search_limit: int = 5,
+    embedding_model: str = "all-MiniLM-L6-v2",
+    llm_model: str = "gpt-oss:latest",
+):
     response = chatrag(
         query=query,
         database_name=database_name,
@@ -88,6 +89,8 @@ def rag(query: str,
     )
     return {"response": response}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=8000)
