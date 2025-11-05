@@ -74,7 +74,7 @@ def chatrag(query: str,
     context_str = "\n\n".join(context) if context else "No relevant context found."
 
     # build system prompt
-    system_prompt = system_prompt(context_str)
+    system_prompt = systemprompt(context_str)
 
     # chat with LLM
     response: ChatResponse = chat(
