@@ -1,11 +1,20 @@
 from pymilvus import connections, Collection, MilvusClient, utility, CollectionSchema, FieldSchema, DataType
 
+
 try:
     connections.disconnect(alias="default")
     connections.connect(alias="default", host="localhost", port="19530")
 except:
     connections.connect(alias="default", host="localhost", port="19530")
 
+def load_database(db_name: str):
+    connections.connect(alias="default", host="localhost", port="19530")
+    client = MilvusClient(
+        uri="http://localhost:19530",
+        token="root:Milvus",
+        db_name=db_name,
+    )
+    return client
 
 def list_collections(client, db_name: str):
     return client.list_collections(db_name=db_name)

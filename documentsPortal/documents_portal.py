@@ -101,18 +101,19 @@ def perform_embedding_generation(chunked_docs: list, model_name: str) -> list:
 
 def toDB(documents, collection_name="document_chunks", bank_name="default_bank"):
 
-    try:
-        connections.disconnect(alias="default")
-        connections.connect(alias="default", host="localhost", port="19530")
-    except:
-        connections.connect(alias="default", host="localhost", port="19530")
-
     client = MilvusClient(
         uri="http://localhost:19530",
         token="root:Milvus",
+        # db_name=bank_name,
     )
-
     database_handling.create_database(client, db_name=bank_name)
+    try:
+        connections.disconnect(alias=bank_name)
+        connections.connect(alias=bank_name, host="localhost", port="19530")
+    except:
+        connections.connect(alias=bank_name, host="localhost", port="19530")
+
+
 
     schema = CollectionSchema(
         [
