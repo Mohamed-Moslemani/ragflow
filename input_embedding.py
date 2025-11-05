@@ -33,14 +33,15 @@ def chatrag(query: str,
 
     # connect to Milvus
     try:
-        connections.disconnect(alias="default")
-        connections.connect("default", host="localhost", port="19530")
+        connections.disconnect(alias=database_name)
+        connections.connect(database_name, host="localhost", port="19530")
     except:
-        connections.connect("default", host="localhost", port="19530")
+        connections.connect(database_name, host="localhost", port="19530")
 
     client = MilvusClient(
         uri="http://localhost:19530",
         token="root:Milvus",
+        db_name=database_name,
     )
 
     # embed query
@@ -92,6 +93,6 @@ def chatrag(query: str,
 # Example usage:
 if __name__ == "__main__":
     question = input("What is your query? ")
-    answer = ask_faq(question)
+    answer = chatrag(question)
     print("\nResponse:", answer)
 
