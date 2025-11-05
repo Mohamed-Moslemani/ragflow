@@ -3,13 +3,9 @@ import re
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility, MilvusClient
+from pymilvus import FieldSchema, CollectionSchema, DataType, MilvusClient
 from sentence_transformers import SentenceTransformer
 import logging
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from databaseHandling import database_handling
 
 
 def load_document(file_path: str) -> str:
@@ -110,6 +106,7 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
     except:
         client.create_database("Banks_DB")
         client.use_database("Banks_DB")
+        logging.info("Created and switched to database 'Banks_DB'")
 
 
     schema = CollectionSchema(
@@ -123,53 +120,56 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
         ],
         description="Document chunks with embeddings",
     )
-    try:
-        collection = Collection(name=collection_name, schema=schema)
-        print(f"Collection '{collection_name}' already exists.")
-        logging.info(f"Collection '{collection_name}' already exists.")
-    except:
+
+    if not client.has_collection(collection_name=collection_name):
         client.create_collection(
             collection_name=collection_name,
             schema=schema,
         )
-        print(f"Collection '{collection_name}' created.")
-        collection = Collection(name=collection_name, schema=schema)
         logging.info(f"Collection '{collection_name}' created.")
+    else:
+        logging.info(f"Collection '{collection_name}' already exists.")
 
-    try:
-        logging.info(f"Dropping existing partition '{partition_name}' and recreating it with updated chunks.")
-        collection.drop_partition(partition_name=partition_name)
-        collection.create_partition(partition_name=partition_name)
-    except:
-        collection.create_partition(partition_name=partition_name)
-        logging.info(f"Partition '{partition_name}' created.")
+    if not client.has_partition(collection_name=collection_name, partition_name=partition_name):
+        client.create_partition(
+            collection_name=collection_name,
+            partition_name=partition_name,
+        )
+        logging.info(f"Partition '{partition_name}' created in collection '{collection_name}'.")
+    else:
+        client.drop_partition(collection_name=collection_name, partition_name=partition_name)
+        client.create_partition(
+            collection_name=collection_name,
+            partition_name=partition_name,
+        )
+        logging.info(f"Partition '{partition_name}' recreated in collection '{collection_name}'.")
 
-    chunk_ids = [doc.metadata["chunk_id"] for doc in documents]
-    texts = [doc.page_content for doc in documents]
-    sources = [doc.metadata["source"] for doc in documents]
-    chunk_sizes = [doc.metadata["chunk_size"] for doc in documents]
-    chunk_types = [doc.metadata["chunk_type"] for doc in documents]
-    embeddings = [doc.metadata["embedding"] for doc in documents]
+    # Prepare data as list of dictionaries matching the schema
+    data = []
+    for doc in documents:
+        data.append({
+            "text": doc.page_content,
+            "source": doc.metadata["source"],
+            "chunk_size": doc.metadata["chunk_size"],
+            "chunk_type": doc.metadata["chunk_type"],
+            "embedding": doc.metadata["embedding"].tolist(),
+        })
 
     client.insert(
         collection_name=collection_name,
         partition_name=partition_name,
-        data=[
-            texts,
-            sources,
-            chunk_sizes,
-            chunk_types,
-            embeddings,
-        ],
+        data=data,
     )
 
-    index_params = {
-        "index_type": "IVF_FLAT",
-        "metric_type": "L2",
-        "params": {"nlist": 128},
-    }
+    index_params = client.prepare_index_params()
+    index_params.add_index(
+        field_name="embedding",
+        index_type="IVF_FLAT",
+        metric_type="L2",
+        params={"nlist": 128}
+    )
 
-    client.create_index(collection_name=collection_name, field_name="embedding", index_params=index_params)
+    client.create_index(collection_name=collection_name, index_params=index_params)
     client.load_collection(collection_name=collection_name)
 
     logging.info(f"Inserted {len(documents)} documents into collection '{collection_name}'.")

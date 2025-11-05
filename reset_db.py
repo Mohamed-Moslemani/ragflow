@@ -1,7 +1,6 @@
 from pymilvus import connections, Collection, MilvusClient, FieldSchema, CollectionSchema, DataType
 import os
 import sys
-import databaseHandling.database_handling as db_handling
 
 
 def reset_all_database():
@@ -13,7 +12,13 @@ def reset_all_database():
     # Delete existing database
     databases = client.list_databases()
     for db in databases:
-        db_handling.delete_database(client, db_name=db)
+        client.use_database(db_name=db)
+        collections = client.list_collections(db_name=db)
+        for coll in collections:
+            client.drop_collection(collection_name=coll)
+        if db != "default":
+            client.drop_database(db_name=db)
+        print(f"Dropped database '{db}'.")
 
 if __name__ == "__main__":
     reset_all_database()
