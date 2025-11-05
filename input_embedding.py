@@ -4,7 +4,7 @@ from ollama import chat, ChatResponse
 import numpy as np
 import sys
 import os
-
+from prompt import systemprompt
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from databaseHandling import database_handling
@@ -74,11 +74,7 @@ def chatrag(query: str,
     context_str = "\n\n".join(context) if context else "No relevant context found."
 
     # build system prompt
-    system_prompt = (
-        "You are a helpful bank assistant.\n"
-        f"Given the following context, answer accurately and concisely:\n\n{context_str}\n\n"
-        "If no context is available, reply: \"I didn't find any available info on this.\""
-    )
+    system_prompt = system_prompt(context_str)
 
     # chat with LLM
     response: ChatResponse = chat(

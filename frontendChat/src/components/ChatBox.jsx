@@ -4,7 +4,7 @@ export default function ChatBox() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [database, setDatabase] = useState("bob_faqs");
+  const [database, setDatabase] = useState("Bank_of_Beirut");
   const chatEndRef = useRef(null);
 
   const sendMessage = async () => {
@@ -17,7 +17,7 @@ export default function ChatBox() {
 
     try {
       const res = await fetch(
-        `http://localhost:8000/chat/${encodeURIComponent(input)}?database_name=${database}`
+        `http://localhost:8000/chat/${encodeURIComponent(input)}?bank_name=${database}`
       );
       const data = await res.json();
 
@@ -51,17 +51,17 @@ export default function ChatBox() {
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-purple-50 to-white p-4">
       <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl p-6 flex flex-col h-[85vh] border border-purple-100">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 border-b pb-3 border-gray-200">
+        <div className="flex items-center justify-between mb-10 border-b pb-3 border-gray-200">
           <h1 className="text-2xl font-bold text-purple-800 tracking-tight">
-            Bank RAG Assistant
+            Bank RAG Assistant  
           </h1>
           <select
             value={database}
             onChange={(e) => setDatabase(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50"
+            className="border border-gray-300 rounded-lg mx-6 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50"
           >
-            <option value="bob_faqs">Bank of Beirut</option>
-            <option value="bankmed_faqs">BankMed</option>
+            <option value="Bank_of_Beirut">Bank of Beirut</option>
+            <option value="BankMed">BankMed</option>
           </select>
         </div>
 

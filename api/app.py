@@ -72,24 +72,20 @@ async def process_document(filename: str):
     )
     return {"message": f"Document '{filename}' processed and stored in database."}
 
-
 @app.get("/chat/{query}")
 def rag(
     query: str,
-    database_name: str,
+    bank_name: str,
     search_limit: int = 5,
     embedding_model: str = "all-MiniLM-L6-v2",
     llm_model: str = "gpt-oss:latest",
 ):
-    response = chatrag(
-        query=query,
-        database_name=database_name,
-        search_limit=search_limit,
-        embedding_model=embedding_model,
-        llm_model=llm_model,
-    )
+    response = chatrag(query,
+            bank_name,
+            search_limit,
+            embedding_model,
+            llm_model)
     return {"response": response}
-
 
 if __name__ == "__main__":
     import uvicorn

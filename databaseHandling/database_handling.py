@@ -17,7 +17,9 @@ def load_database(db_name: str):
     return client
 
 def list_collections(client, db_name: str):
-    return client.list_collections(db_name=db_name)
+    client.using_database(db_name)
+    collections = client.list_collections()
+    return collections
 
 def create_collection(collection_name: str, schema: CollectionSchema, db_name: str, **kwargs):
     if utility.has_collection(collection_name=collection_name, using="default"):
