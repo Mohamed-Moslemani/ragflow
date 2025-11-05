@@ -3,7 +3,8 @@ import os
 from ollama import chat, ChatResponse
 from pymilvus import connections, Collection
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+os.sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from documentsPortal import documents_portal
 from fastapi.middleware.cors import CORSMiddleware
 from input_embedding import chatrag
@@ -66,8 +67,8 @@ async def process_document(filename: str):
     )
     documents_portal.toDB(
         documents=chunks,
-        collection_name=filename,
-        bank_name=selected_bank_name,
+        collection_name=selected_bank_name,
+        partition_name=filename,
     )
     return {"message": f"Document '{filename}' processed and stored in database."}
 
@@ -92,5 +93,4 @@ def rag(
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="127.0.0.1", port=8000)

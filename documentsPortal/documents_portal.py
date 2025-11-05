@@ -137,6 +137,7 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
         )
         logging.info(f"Partition '{partition_name}' created in collection '{collection_name}'.")
     else:
+        client.release_partitions(collection_name=collection_name, partition_names=[partition_name])
         client.drop_partition(collection_name=collection_name, partition_name=partition_name)
         client.create_partition(
             collection_name=collection_name,
