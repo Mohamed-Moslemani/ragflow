@@ -13,10 +13,10 @@ from databaseHandling import database_handling
 
 
 def chatrag(query: str,
-            database_name: str,
+            bank_name: str,
             search_limit: int = 5,
             embedding_model: str = 'all-MiniLM-L6-v2',
-            llm_model: str = "gpt-oss:latest") -> str:
+            llm_model: str = "gpt-oss:20b") -> str:
     """
     Perform semantic search over Milvus FAQ collection and generate an LLM-based answer.
 
@@ -31,44 +31,46 @@ def chatrag(query: str,
         str: The generated LLM response.
     """
 
-    # connect to Milvus
-    try:
-        connections.disconnect(alias=database_name)
-        connections.connect(database_name, host="localhost", port="19530")
-    except:
-        connections.connect(database_name, host="localhost", port="19530")
-
     client = MilvusClient(
         uri="http://localhost:19530",
         token="root:Milvus",
-        db_name=database_name,
     )
+
+    client.use_database("Banks_DB")
+
 
     # embed query
     model = SentenceTransformer(embedding_model)
     embedded_input = model.encode([query]).tolist()
 
-    # search in Milvus
-    collections_list = database_handling.list_collections(client, db_name=database_name)
-    if not collections_list:
-        return "No collections found in the specified database."
-    results = []
-    for coll in collections_list:
-        collection = Collection(name=coll, using="default", db_name=database_name)
-        collection.load()
-        results.extend(collection.search(
-            data=embedded_input,
-            anns_field="question_embedding",
-            param={"metric_type": "L2", "params": {"nprobe": 10}},
-            limit=search_limit,
-            output_fields=["question", "answer"]
-        ))
+    results = client.search(
+        collection_name=bank_name,
+        data=embedded_input,
+        anns_field="embedding",
+        search_param={"metric_type": "L2", "params": {"nprobe": 10}},
+        limit=search_limit,
+        output_fields=["text", "source"]
+    )
 
-    # sort results by distance
-    results.sort(key=lambda x: x[0].distance)
-    results = results[0][:search_limit]
 
-    context = [hit.entity for hit in results]
+    # # search in Milvus
+    # collections_list = database_handling.list_collections(client, db_name=database_name)
+    # if not collections_list:
+    #     return "No collections found in the specified database."
+    # results = []
+    # for coll in collections_list:
+    #     collection = Collection(name=coll, using="default", db_name=database_name)
+    #     collection.load()
+    #     results.extend(collection.search(
+    #         data=embedded_input,
+    #         anns_field="question_embedding",
+    #         param={"metric_type": "L2", "params": {"nprobe": 10}},
+    #         limit=search_limit,
+    #         output_fields=["question", "answer"]
+    #     ))
+
+    # print(results)
+    context = [item["entity"]["text"] for sublist in results for item in sublist]
     context_str = "\n\n".join(context) if context else "No relevant context found."
 
     # build system prompt
@@ -93,6 +95,6 @@ def chatrag(query: str,
 # Example usage:
 if __name__ == "__main__":
     question = input("What is your query? ")
-    answer = chatrag(question)
+    answer = chatrag(question, bank_name="Bank_of_Beirut")
     print("\nResponse:", answer)
 
