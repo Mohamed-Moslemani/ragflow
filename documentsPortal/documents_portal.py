@@ -51,7 +51,19 @@ def load_image_file(file_path: str) -> str:
 
     with open(file_path, "rb") as f:
         encoded_image = base64.b64encode(f.read()).decode("utf-8")
-    
+
+    description_response = ollama.generate(
+        model=OLLAMA_MODEL,
+        prompt=(
+            "You are an expert image analyst. "
+            "Describe the content of the image in a few words. "
+            "Give precisely, if available, details about tables, graphs, charts. "
+            "Do not mention text recognition in your description. "
+            "Output only the description without any additional commentary. "
+        ),
+        images=[encoded_image],
+    )
+    print(f"[DEBUG] Ollama image description response: {description_response['response']}")
     # Use Ollama’s Python client
     response = ollama.generate(
         model=OLLAMA_MODEL,
