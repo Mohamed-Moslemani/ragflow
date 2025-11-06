@@ -8,19 +8,44 @@ from langchain_core.documents import Document
 from pymilvus import FieldSchema, CollectionSchema, DataType, MilvusClient
 from sentence_transformers import SentenceTransformer
 import logging
+import base64
+import requests
+import ollama
 
+OLLAMA_MODEL = "qwen3-vl:2b-instruct"
 
 def load_document(file_path: str) -> str:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
-    if file_path.endswith(".txt"):
-        return load_text_file(file_path)
-    if file_path.endswith(".pdf"):
-        return load_pdf_file(file_path)
-    if file_path.endswith(".jpg") or file_path.endswith(".jpeg") or file_path.endswith(".png"):
-        return load_image_file(file_path)
-    raise ValueError(f"Unsupported file type for {file_path}")
+    if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
+        print(f"[DEBUG] Using Ollama model {OLLAMA_MODEL} for OCR on {file_path}")
+
+        # Encode the image to base64
+        with open(file_path, "rb") as f:
+            encoded_image = base64.b64encode(f.read()).decode("utf-8")
+
+        # Use Ollama’s Python client
+        response = ollama.generate(
+            model=OLLAMA_MODEL,
+            prompt=(
+                "Extract every piece of visible text from this image. "
+                "Return only the text, no commentary, no markdown."
+            ),
+            images=[encoded_image],
+        )
+
+        return response.get("response", "").strip()
+
+    elif file_path.endswith(".txt"):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    elif file_path.endswith(".pdf"):
+        return load_pdf_file(file_path)  # assuming you already defined this
+
+    else:
+        raise ValueError(f"Unsupported file type for {file_path}")
 
 
 def load_text_file(file_path: str) -> str:
@@ -207,5 +232,5 @@ def main(file_path: str):
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "image_2.png"  
+    test_file_path = "C://Users//M.Moslemani//ragflow//documentsPortal//image1.jpg"  
     main(test_file_path)
