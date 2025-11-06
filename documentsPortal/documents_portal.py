@@ -11,7 +11,7 @@ import logging
 import base64
 import requests
 import ollama
-from PATHS import path 
+
 OLLAMA_MODEL = "qwen3-vl:2b-instruct"
 
 def load_document(file_path: str) -> str:
@@ -34,6 +34,7 @@ def load_document(file_path: str) -> str:
 def load_text_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
+    content = {"text": content}
     return content
 
 
@@ -43,6 +44,7 @@ def load_pdf_file(file_path: str) -> str:
     for page in reader.pages:
         text = page.extract_text() or ""
         content += text + "\n"
+    content = {"text": content}
     return content
 
 def load_image_file(file_path: str) -> str:
@@ -86,10 +88,15 @@ def load_image_file(file_path: str) -> str:
         print("[DEBUG] No text found by Ollama, falling back to pytesseract OCR.")
         image = Image.open(file_path)
         text = image_to_string(image)
-        return text
     else:
         print("[DEBUG] Text successfully extracted by Ollama.")
-        return response.get("response", "").strip()
+    
+    content = {
+        "text": response.get("response", "").strip() if "No text found." not in response.get("response", "") else text,
+        "description": description_response.get("response", "").strip()
+    }
+
+    return content
 
 
 def perform_semantic_chunking(
@@ -106,49 +113,60 @@ def perform_semantic_chunking(
         length_function=len,
     )
 
-    semantic_chunks = text_splitter.split_text(document)
-    print(f"Document split into {len(semantic_chunks)} semantic chunks")
-
-    section_patterns = [
-        r"^#+\s+(.+)$",      # Markdown headers:  ## Section
-        r"^.+\n[=\-]{2,}$",  # Underlined headers
-        r"^[A-Z\s]+:$",      # ALL CAPS section titles:
-    ]
-
+    documents_to_embed = [document.get("text", "")] if isinstance(document, dict) else [document]
+    if document.get("description"):
+        documents_to_embed.append(document.get("description"))
+    
     documents = []
+    for i in range(len(documents_to_embed)):
+        document = documents_to_embed[i]
+        semantic_chunks = text_splitter.split_text(document)
+        print(f"Document split into {len(semantic_chunks)} semantic chunks")
 
-    for i, chunk in enumerate(semantic_chunks):
-        chunk_lines = chunk.split("\n")
-        for line in chunk_lines:
-            for pattern in section_patterns:
-                if re.match(pattern, line.strip()):
-                    chunk_type = "section_header"
-                    break
-                else:
-                    chunk_type = "semantic"
-            
-        words = re.findall(r"\b\w+\b", chunk.lower())
+        section_patterns = [
+            r"^#+\s+(.+)$",      # Markdown headers:  ## Section
+            r"^.+\n[=\-]{2,}$",  # Underlined headers
+            r"^[A-Z\s]+:$",      # ALL CAPS section titles:
+        ]
 
-        doc = Document(
-            page_content=chunk,
-            metadata={
-                "source": source,
-                "chunk_id": i,
-                "total_chunks": len(semantic_chunks),
-                "chunk_size": len(chunk),
-                "chunk_type": "semantic",
-            },
-        )
-        documents.append(doc)
+        docs = []
+
+        for j, chunk in enumerate(semantic_chunks):
+            chunk_lines = chunk.split("\n")
+            for line in chunk_lines:
+                for pattern in section_patterns:
+                    if re.match(pattern, line.strip()):
+                        chunk_type = "section_header"
+                        break
+                    else:
+                        chunk_type = "semantic"
+                    if i == 1:
+                        chunk_type = "image_description"
+                
+            words = re.findall(r"\b\w+\b", chunk.lower())
+
+            doc = Document(
+                page_content=chunk,
+                metadata={
+                    "source": source,
+                    "chunk_id": j,
+                    "total_chunks": len(semantic_chunks),
+                    "chunk_size": len(chunk),
+                    "chunk_type": "semantic",
+                },
+            )
+            docs.append(doc)
+        documents.append(docs)
 
     return documents
 
 def perform_embedding_generation(chunked_docs: list, model_name: str) -> list:
     model = SentenceTransformer(model_name)
-    texts = [doc.page_content for doc in chunked_docs]
-    embeddings = model.encode(texts, convert_to_numpy=True).astype("float32")
-    for doc, embedding in zip(chunked_docs, embeddings):
-        doc.metadata["embedding"] = embedding
+    for doc_group in chunked_docs:
+        texts = [doc.page_content for doc in doc_group]
+        embeddings = model.encode(texts, convert_to_numpy=True).astype("float32")
+        for doc, embedding in zip(doc_group, embeddings):
+            doc.metadata["embedding"] = embedding
         
     return chunked_docs
 
@@ -166,6 +184,7 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
         logging.info("Created and switched to database 'Banks_DB'")
 
 
+    documents = [doc for sublist in documents for doc in sublist]
     schema = CollectionSchema(
         [
             FieldSchema(name="chunk_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
@@ -237,23 +256,28 @@ def main(file_path: str):
     document_content = load_document(file_path)
     print(document_content)
 
-    # # 2. Chunk into Document objects with metadata
-    # chunked_docs = perform_semantic_chunking(
-    #     document=document_content,
-    #     source=file_path,
-    #     chunk_size=500,
-    #     chunk_overlap=100,
-    # )
-    # print(chunked_docs)
+    # 2. Chunk into Document objects with metadata
+    chunked_docs = perform_semantic_chunking(
+        document=document_content,
+        source=file_path,
+        chunk_size=500,
+        chunk_overlap=100,
+    )
+    print(chunked_docs)
 
-    # # 3. Embed chunks
-    # embedded_docs = perform_embedding_generation(
-    #     chunked_docs=chunked_docs,
-    #     model_name='all-MiniLM-L6-v2',
-    # )
-    # # 4. Store in database
-    # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
+    # 3. Embed chunks
+    embedded_docs = perform_embedding_generation(
+        chunked_docs=chunked_docs,
+        model_name='all-MiniLM-L6-v2',
+    )
+    # print(embedded_docs)
+    # 4. Store in database
+    toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = path("image1.png")  
+    try:
+        from PATHS import path 
+        test_file_path = path("image1.png")
+    except:
+        test_file_path = "image_4.png"
     main(test_file_path)
