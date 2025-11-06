@@ -57,10 +57,10 @@ def load_image_file(file_path: str) -> str:
         model=OLLAMA_MODEL,
         prompt=(
             "Determine whether the image contains handwritten or printed text. Take the decision carefully. "
-            "If any handwritten text is present, extract all visible handwritten text exactly as it appears. "
+            "If any handwritten text is present, extract all visible text exactly as it appears. "
+            "If the image contains only printed text, return 'No text found.' "
             "Do not explain or add commentary. "
             "Output only the extracted text. "
-            "If the image contains printed text only, respond with 'No text found.'"
         ),
         images=[encoded_image],
     )
@@ -243,5 +243,5 @@ def main(file_path: str):
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "image_2.png"  
+    test_file_path = "image.png"  
     main(test_file_path)
