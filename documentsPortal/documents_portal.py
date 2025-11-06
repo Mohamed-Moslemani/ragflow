@@ -1,6 +1,8 @@
 import os
 import re
 from PyPDF2 import PdfReader
+from pytesseract import image_to_string
+from PIL import Image
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from pymilvus import FieldSchema, CollectionSchema, DataType, MilvusClient
@@ -16,7 +18,8 @@ def load_document(file_path: str) -> str:
         return load_text_file(file_path)
     if file_path.endswith(".pdf"):
         return load_pdf_file(file_path)
-
+    if file_path.endswith(".jpg") or file_path.endswith(".jpeg") or file_path.endswith(".png"):
+        return load_image_file(file_path)
     raise ValueError(f"Unsupported file type for {file_path}")
 
 
@@ -33,6 +36,12 @@ def load_pdf_file(file_path: str) -> str:
         text = page.extract_text() or ""
         content += text + "\n"
     return content
+
+def load_image_file(file_path: str) -> str:
+
+    image = Image.open(file_path)
+    text = image_to_string(image)
+    return text
 
 
 def perform_semantic_chunking(
@@ -178,24 +187,25 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
     
 def main(file_path: str):
     document_content = load_document(file_path)
+    print(document_content)
 
-    # 2. Chunk into Document objects with metadata
-    chunked_docs = perform_semantic_chunking(
-        document=document_content,
-        source=file_path,
-        chunk_size=500,
-        chunk_overlap=100,
-    )
-    print(chunked_docs)
+    # # 2. Chunk into Document objects with metadata
+    # chunked_docs = perform_semantic_chunking(
+    #     document=document_content,
+    #     source=file_path,
+    #     chunk_size=500,
+    #     chunk_overlap=100,
+    # )
+    # print(chunked_docs)
 
-    # 3. Embed chunks
-    embedded_docs = perform_embedding_generation(
-        chunked_docs=chunked_docs,
-        model_name='all-MiniLM-L6-v2',
-    )
-    # 4. Store in database
-    toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
+    # # 3. Embed chunks
+    # embedded_docs = perform_embedding_generation(
+    #     chunked_docs=chunked_docs,
+    #     model_name='all-MiniLM-L6-v2',
+    # )
+    # # 4. Store in database
+    # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "Chroma_DB_Filtering.pdf"  
+    test_file_path = "image_2.png"  
     main(test_file_path)
