@@ -8,20 +8,27 @@ from langchain_core.documents import Document
 from pymilvus import FieldSchema, CollectionSchema, DataType, MilvusClient
 from sentence_transformers import SentenceTransformer
 import logging
+import easyocr
 
 
+_reader = easyocr.Reader(['en'])  # add 'ar' if you need Arabic: ['en', 'ar']
 def load_document(file_path: str) -> str:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
     if file_path.endswith(".txt"):
         return load_text_file(file_path)
+
     if file_path.endswith(".pdf"):
         return load_pdf_file(file_path)
-    if file_path.endswith(".jpg") or file_path.endswith(".jpeg") or file_path.endswith(".png"):
-        return load_image_file(file_path)
-    raise ValueError(f"Unsupported file type for {file_path}")
 
+    if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
+        print(f"[DEBUG] Using EasyOCR on image: {file_path}")
+        results = _reader.readtext(file_path, detail=0)
+        text = "\n".join(results)
+        return text.strip()
+
+    raise ValueError(f"Unsupported file type for {file_path}")
 
 def load_text_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as file:
@@ -207,5 +214,5 @@ def main(file_path: str):
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "image_2.png"  
+    test_file_path = "C://Users//M.Moslemani//ragflow//documentsPortal//image1.jpg"  
     main(test_file_path)
