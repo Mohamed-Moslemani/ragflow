@@ -7,7 +7,7 @@ export default function ChatBox() {
   const [database, setDatabase] = useState("Bank_of_Beirut");
   const chatEndRef = useRef(null);
 
-  const sendMessage = async () => {
+  const sendMessage = async () => { 
     if (!input.trim()) return;
 
     const userMessage = { sender: "user", text: input };
