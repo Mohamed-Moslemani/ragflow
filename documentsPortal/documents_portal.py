@@ -11,7 +11,7 @@ import logging
 import base64
 import requests
 import ollama
-
+from PATHS import path 
 OLLAMA_MODEL = "qwen3-vl:2b-instruct"
 
 def load_document(file_path: str) -> str:
@@ -243,5 +243,5 @@ def main(file_path: str):
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "image.png"  
+    test_file_path = path("image1.png")  
     main(test_file_path)
