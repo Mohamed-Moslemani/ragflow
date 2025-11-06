@@ -89,7 +89,7 @@ export default function UploadForm() {
           </label>
           <input
             type="file"
-            accept=".pdf,.txt"
+            accept=".pdf,.txt,.png,.jpg,.jpeg"
             onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
             className="w-full border border-gray-300 rounded-md p-2 bg-gray-50"
           />
