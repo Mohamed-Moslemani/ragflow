@@ -19,30 +19,13 @@ def load_document(file_path: str) -> str:
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
     if file_path.lower().endswith((".jpg", ".jpeg", ".png")):
-        print(f"[DEBUG] Using Ollama model {OLLAMA_MODEL} for OCR on {file_path}")
-
-        # Encode the image to base64
-        with open(file_path, "rb") as f:
-            encoded_image = base64.b64encode(f.read()).decode("utf-8")
-
-        # Use Ollama’s Python client
-        response = ollama.generate(
-            model=OLLAMA_MODEL,
-            prompt=(
-                "Extract every piece of visible text from this image. "
-                "Return only the text, no commentary, no markdown."
-            ),
-            images=[encoded_image],
-        )
-
-        return response.get("response", "").strip()
+        return load_image_file(file_path)
 
     elif file_path.endswith(".txt"):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
+        return load_text_file(file_path)
 
     elif file_path.endswith(".pdf"):
-        return load_pdf_file(file_path)  # assuming you already defined this
+        return load_pdf_file(file_path)
 
     else:
         raise ValueError(f"Unsupported file type for {file_path}")
@@ -64,9 +47,37 @@ def load_pdf_file(file_path: str) -> str:
 
 def load_image_file(file_path: str) -> str:
 
-    image = Image.open(file_path)
-    text = image_to_string(image)
-    return text
+    print(f"[DEBUG] Using Ollama model {OLLAMA_MODEL} for OCR on {file_path}")
+
+    with open(file_path, "rb") as f:
+        encoded_image = base64.b64encode(f.read()).decode("utf-8")
+    
+    # Use Ollama’s Python client
+    response = ollama.generate(
+        model=OLLAMA_MODEL,
+        prompt=(
+            "Determine whether the image contains handwritten or printed text. Take the decision carefully. "
+            "If any handwritten text is present, extract all visible handwritten text exactly as it appears. "
+            "Do not explain or add commentary. "
+            "Output only the extracted text. "
+            "If the image contains printed text only, respond with 'No text found.'"
+        ),
+        images=[encoded_image],
+    )
+
+    print(f"[DEBUG] Ollama response: {response}")
+
+    if not response or "response" not in response:
+        raise ValueError("No response from Ollama model.")
+    
+    if "No text found." in response.get("response", ""):
+        print("[DEBUG] No text found by Ollama, falling back to pytesseract OCR.")
+        image = Image.open(file_path)
+        text = image_to_string(image)
+        return text
+    else:
+        print("[DEBUG] Text successfully extracted by Ollama.")
+        return response.get("response", "").strip()
 
 
 def perform_semantic_chunking(
@@ -232,5 +243,5 @@ def main(file_path: str):
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
 if __name__ == "__main__":
-    test_file_path = "C://Users//M.Moslemani//ragflow//documentsPortal//image1.jpg"  
+    test_file_path = "image_2.png"  
     main(test_file_path)
