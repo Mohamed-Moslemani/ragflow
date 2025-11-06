@@ -19,3 +19,17 @@ node_modules/
 *.class
 milvustest.py
 *.md 
+*jpg 
+*jpeg 
+*png
+*.gif
+*.pdf
+*.docx
+*.pptx
+*.xlsx
+*.zip
+*.tar.gz
+*.rar
+*.exe
+*.dll
+*.iso
