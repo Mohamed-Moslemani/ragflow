@@ -19,3 +19,6 @@ node_modules/
 *.class
 milvustest.py
 *.md 
+*.png
+*.jpeg
+*.jpg 

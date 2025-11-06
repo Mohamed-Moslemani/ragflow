@@ -8,18 +8,33 @@ from langchain_core.documents import Document
 from pymilvus import FieldSchema, CollectionSchema, DataType, MilvusClient
 from sentence_transformers import SentenceTransformer
 import logging
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+import torch
 
 
+_trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+_trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
 def load_document(file_path: str) -> str:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
     if file_path.endswith(".txt"):
         return load_text_file(file_path)
+
     if file_path.endswith(".pdf"):
         return load_pdf_file(file_path)
+
     if file_path.endswith(".jpg") or file_path.endswith(".jpeg") or file_path.endswith(".png"):
-        return load_image_file(file_path)
+        # Use TrOCR directly here (no new functions)
+        image = Image.open(file_path).convert("RGB")
+        pixel_values = _trocr_processor(images=image, return_tensors="pt").pixel_values
+
+        with torch.no_grad():
+            generated_ids = _trocr_model.generate(pixel_values)
+            text = _trocr_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        return text.strip()
+
     raise ValueError(f"Unsupported file type for {file_path}")
 
 
@@ -184,10 +199,13 @@ def toDB(documents, partition_name="document_chunks", collection_name="default_b
 
     logging.info(f"Inserted {len(documents)} documents into collection '{collection_name}'.")
     
-    
 def main(file_path: str):
     document_content = load_document(file_path)
     print(document_content)
+
+if __name__ == "__main__":
+    test_file_path = "C://Users//M.Moslemani//ragflow//documentsPortal//image2.jpeg"  
+    main(test_file_path)
 
     # # 2. Chunk into Document objects with metadata
     # chunked_docs = perform_semantic_chunking(
@@ -206,6 +224,6 @@ def main(file_path: str):
     # # 4. Store in database
     # toDB(embedded_docs, collection_name="testChunk", partition_name="faqs_db")
 
-if __name__ == "__main__":
-    test_file_path = "image_2.png"  
-    main(test_file_path)
+# if __name__ == "__main__":
+#     test_file_path = "image_2.png"  
+#     main(test_file_path)
